@@ -173,7 +173,7 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "shresthababita119@gmail.com"
-EMAIL_HOST_PASSWORD = "oeti fuiz adjs wuxx"
+EMAIL_HOST_PASSWORD = "cjwf cwnh awki wnjd"
 
 DEFAULT_FROM_EMAIL = "no-reply@lms.com"
 

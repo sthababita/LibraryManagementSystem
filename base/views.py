@@ -22,7 +22,12 @@ import requests
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.http import JsonResponse
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
+from .serializers import EmailSendSerializer
+from .utils.email_utils import send_simple_email
 
 
 # Pagination
@@ -331,16 +336,6 @@ def make_payment(request):
 
 
 
-
-
-# base/views.py
-# base/views.py
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from drf_yasg.utils import swagger_auto_schema
-from .serializers import EmailSendSerializer
-from .utils.email_utils import send_simple_email
 
 @swagger_auto_schema(
     method='post',
