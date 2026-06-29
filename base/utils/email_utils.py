@@ -1,7 +1,11 @@
-# base/utils/email_utils.py
-
 from django.core.mail import send_mail
+from django.core.mail import BadHeaderError
 from django.conf import settings
+import logging
+import smtplib
+
+
+logger = logging.getLogger(__name__)
 
 
 def send_simple_email(subject: str, message: str, recipient_list: list):
@@ -13,13 +17,22 @@ def send_simple_email(subject: str, message: str, recipient_list: list):
         message (str): Email body
         recipient_list (list): List of recipient emails
     """
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=recipient_list,
-        fail_silently=False
-    )
+    if not recipient_list:
+        return False
+
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipient_list,
+            fail_silently=False
+        )
+    except (BadHeaderError, smtplib.SMTPException, OSError) as exc:
+        logger.warning("Email delivery failed for %s: %s", recipient_list, exc)
+        return False
+
+    return True
 
 
 def send_student_deadline_email(student_name: str, course_name: str, deadline, recipient_list: list):
@@ -46,7 +59,7 @@ def send_student_deadline_email(student_name: str, course_name: str, deadline, r
         f"Best regards,\nELMS Team"
     )
 
-    send_simple_email(subject, message, recipient_list)
+    return send_simple_email(subject, message, recipient_list)
 
 
 def send_sponsor_progress_email(sponsor_name: str, student_name: str, progress: float, recipient_list: list):
@@ -68,7 +81,7 @@ def send_sponsor_progress_email(sponsor_name: str, student_name: str, progress: 
         f"Best regards,\nELMS Team"
     )
 
-    send_simple_email(subject, message, recipient_list)
+    return send_simple_email(subject, message, recipient_list)
 
 
 def send_instructor_progress_email(student_name: str, instructor_name: str, progress: float, recipient_list: list):
@@ -88,4 +101,4 @@ def send_instructor_progress_email(student_name: str, instructor_name: str, prog
         f"Best regards,\nELMS Team"
     )
 
-    send_simple_email(subject, message, recipient_list)
+    return send_simple_email(subject, message, recipient_list)

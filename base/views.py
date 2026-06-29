@@ -213,7 +213,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.none()  # ✅ safer
 
     filter_backends = [SearchFilter, DjangoFilterBackend]
-    search_fields = ['title', 'instructor__username']
+    search_fields = ['name', 'instructor__username']
     filterset_fields = ['difficulty']
 
     def get_queryset(self):
@@ -225,7 +225,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         if user.groups.filter(name='Instructor').exists():
             return Course.objects.filter(instructor=user)
 
-        if user.groups.filter(name='student').exists():
+        if user.groups.filter(name='Student').exists():
             return Course.objects.all()
 
         return Course.objects.none()
@@ -269,7 +269,17 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        if getattr(self, 'swagger_fake_view', False):
+            return Notification.objects.none()
+
+        user = self.request.user
+        if not user.is_authenticated:
+            return Notification.objects.none()
+
+        return Notification.objects.filter(user=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 # Example: Sending notification emails
@@ -285,38 +295,6 @@ def send_course_deadline_email(student_email, course_name):
 
 
 
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import Enrollment
-from .utils import (
-    send_student_deadline_email,
-    send_sponsor_progress_email
-)
-
-@api_view(['POST'])
-def notify_students_deadline(request):
-    enrollments = Enrollment.objects.all()
-    for e in enrollments:
-        send_student_deadline_email(
-            e.student.email,
-            e.course.name,
-            "2026-02-01"
-        )
-    return Response({"message": "Student deadline emails sent"})
-
-@api_view(['POST'])
-def notify_sponsors_progress(request):
-    for e in Enrollment.objects.all():
-        if hasattr(e.student, 'sponsored_students'):
-            sponsor = e.student.sponsored_students.first().sponsor
-            send_sponsor_progress_email(
-                sponsor.email,
-                e.student.username,
-                e.progress
-            )
-    return Response({"message": "Sponsor progress emails sent"})
 
 
 from .models import Payment
@@ -348,11 +326,13 @@ def send_email_api(request):
     serializer = EmailSendSerializer(data=request.data)
     if serializer.is_valid():
         data = serializer.validated_data
-        send_simple_email(
+        sent = send_simple_email(
             subject=data['subject'],
             message=data['message'],
             recipient_list=data['recipients']
         )
+        if not sent:
+            return Response({"error": "Email could not be delivered"}, status=502)
         return Response({"message": "Email sent successfully"}, status=201)
     return Response(serializer.errors, status=400)
 
@@ -384,6 +364,7 @@ def notify_students_deadline(request):
             deadline = getattr(e.course, 'deadline', '2026-02-01')  # replace with your field
 
             send_student_deadline_email(
+                student_name=e.student.username,
                 course_name=e.course.name,
                 deadline=deadline,
                 recipient_list=[e.student.email]  # must be a list
@@ -417,6 +398,7 @@ def notify_sponsors_progress(request):
                 sent.add(key)
 
                 send_sponsor_progress_email(
+                    sponsor_name=sponsor.username,
                     student_name=e.student.username,
                     progress=e.progress,
                     recipient_list=[sponsor.email]  # must be a list
